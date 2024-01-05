@@ -84,7 +84,22 @@ def home_page() :
 
     with col1 :
 
-        st.markdown("Technologies Used : Python, PostgreSQL, Easy OCR, Pandas and Streamlit")
+        with col1:
+            st.markdown("""
+                Technologies Used:
+                - Python
+                - PostgreSQL
+                - Easy OCR
+                - Pandas
+                - Streamlit
+                
+                Features:
+                - Upload business card images for data extraction.
+                - Extract information such as company name, cardholder name, designation, mobile number, email, website, area, city, state, pin code.
+                - Store extracted data in a PostgreSQL database.
+                - Modify or delete existing business card data in the database.
+                - User-friendly interface built with Streamlit.
+                """)
 
     with col2 :
         image_path = "home.png"
