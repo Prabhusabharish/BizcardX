@@ -6,29 +6,17 @@ import streamlit as st
 import re
 import matplotlib.pyplot as plt
 from PIL import Image
-from streamlit_option_menu import option_menu
 from io import BytesIO
 import os
 import io
 import cv2
 import pytesseract as reader
 import pytesseract
-import base64
-import logging
-import tempfile
 from PIL import Image, UnidentifiedImageError
 import streamlit as st
 from PIL import Image
 import pytesseract
-# Connect to Postgres SQL
-pk = psycopg2.connect(host = "localhost",
-                        user = "postgres",
-                        password = "Sabharish@2015",
-                        database = "BizcardX",
-                        port = "5432")
 
-
-cursor = pk.cursor()
 
 
 # - - - - - - - - - - - - - - -set st addbar page - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -50,6 +38,47 @@ def setting_bg():
                      </style>""",unsafe_allow_html=True) 
 setting_bg()
 
+
+
+# Connect to PostgreSQL
+pk = psycopg2.connect(
+    host="localhost",
+    user="postgres",
+    password="Sabharish@2015",
+    database="BizcardX",
+    port="5432"
+)
+
+# Create a cursor object
+cursor = pk.cursor()
+
+# Define the SQL query to create the table
+create_table_query = """
+CREATE TABLE IF NOT EXISTS card_data (
+    id SERIAL PRIMARY KEY,
+    company_name VARCHAR(255),
+    card_holder VARCHAR(255),
+    designation VARCHAR(255),
+    mobile_number VARCHAR(20),
+    email VARCHAR(255),
+    website VARCHAR(255),
+    area VARCHAR(255),
+    city VARCHAR(255),
+    state VARCHAR(255),
+    pin_code VARCHAR(10),
+    image BYTEA -- Assuming you want to store the image data as binary (adjust the data type accordingly)
+);
+"""
+
+# Execute the SQL query
+cursor.execute(create_table_query)
+
+# Commit the changes
+pk.commit()
+
+# Close the cursor and connection
+cursor.close()
+pk.close()
 # - - - - - - - - - - - - - - - - - - -Home page - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # Home page creation
 def home_page() :
@@ -348,10 +377,11 @@ cursor = pk.cursor()
 # Main Page
 def main():
     st.title("")
+    cursor = pk.cursor()
 
-    st.sidebar.title("Navigation")
-    page = ["Home", "Upload and Extract", "Modify Page"]
-    selected_page = st.sidebar.radio("Navigation", page)
+    st.sidebar.title("")
+    page = ["Home", "Upload and Extract",  "Modify Page"]
+    selected_page = st.sidebar.radio("", page)
 
     if selected_page == "Home":
         home_page()
@@ -359,10 +389,6 @@ def main():
         upload_extract_page()
     elif selected_page == "Modify Page":
         modify_Page()
-
-# Sidebar option with a tooltip using markdown
-st.sidebar.markdown("")
-st.sidebar.write("")
-
+ 
 if __name__ == "__main__":
-    main()
+    main()  
