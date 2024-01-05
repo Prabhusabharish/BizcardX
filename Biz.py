@@ -6,18 +6,20 @@ import streamlit as st
 import re
 import matplotlib.pyplot as plt
 from PIL import Image
+from streamlit_option_menu import option_menu
 from io import BytesIO
 import os
 import io
 import cv2
 import pytesseract as reader
 import pytesseract
+import base64
+import logging
+import tempfile
 from PIL import Image, UnidentifiedImageError
 import streamlit as st
 from PIL import Image
 import pytesseract
-
-
 
 # - - - - - - - - - - - - - - -set st addbar page - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -48,11 +50,8 @@ pk = psycopg2.connect(
     database="BizcardX",
     port="5432"
 )
-
-# Create a cursor object
 cursor = pk.cursor()
 
-# Define the SQL query to create the table
 create_table_query = """
 CREATE TABLE IF NOT EXISTS card_data (
     id SERIAL PRIMARY KEY,
@@ -70,13 +69,10 @@ CREATE TABLE IF NOT EXISTS card_data (
 );
 """
 
-# Execute the SQL query
 cursor.execute(create_table_query)
 
-# Commit the changes
 pk.commit()
 
-# Close the cursor and connection
 cursor.close()
 pk.close()
 # - - - - - - - - - - - - - - - - - - -Home page - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -106,9 +102,7 @@ pk = psycopg2.connect(host = "localhost",
 
 cursor = pk.cursor()
 
-
 reader = easyocr.Reader(['en'])
-
 
 def upload_extract_page() :      
     st.markdown("### Upload a Business Card")
@@ -178,41 +172,33 @@ def upload_extract_page() :
         def get_data(res):
             for ind,i in enumerate(res):
 
-                # To get WEBSITE_URL
                 if "www " in i.lower() or "www." in i.lower():
                     data["website"].append(i)
                 elif "WWW" in i:
                     data["website"] = res[4] +"." + res[5]
 
-                # To get EMAIL ID
                 elif "@" in i:
                     data["email"].append(i)
 
-                # To get MOBILE NUMBER
                 elif "-" in i:
                     data["mobile_number"].append(i)
                     if len(data["mobile_number"]) ==2:
                         data["mobile_number"] = " & ".join(data["mobile_number"])
 
-                # To get COMPANY NAME  
                 elif ind == len(res)-1:
                     data["company_name"].append(i)
 
-                # To get CARD HOLDER NAME
                 elif ind == 0:
                     data["card_holder"].append(i)
 
-                # To get DESIGNATION
                 elif ind == 1:
                     data["designation"].append(i)
 
-                # To get AREA
                 if re.findall('^[0-9].+, [a-zA-Z]+',i):
                     data["area"].append(i.split(',')[0])
                 elif re.findall('[0-9] [a-zA-Z]+',i):
                     data["area"].append(i)
 
-                # To get CITY NAME
                 match1 = re.findall('.+St , ([a-zA-Z]+).+', i)
                 match2 = re.findall('.+St,, ([a-zA-Z]+).+', i)
                 match3 = re.findall('^[E].*',i)
@@ -223,7 +209,6 @@ def upload_extract_page() :
                 elif match3:
                     data["city"].append(match3[0])
 
-                # To get STATE
                 state_match = re.findall('[a-zA-Z]{9} +[0-9]',i)
                 if state_match:
                      data["state"].append(i[:9])
@@ -232,14 +217,12 @@ def upload_extract_page() :
                 if len(data["state"])== 2:
                     data["state"].pop(0)
 
-                # To get PINCODE        
                 if len(i)>=6 and i.isdigit():
                     data["pin_code"].append(i)
                 elif re.findall('[a-zA-Z]{9} +[0-9]',i):
                     data["pin_code"].append(i[10:])
         get_data(result)
         
-        #FUNCTION TO CREATE DATAFRAME
         def create_df(data):
             df = pd.DataFrame(data)
             return df
@@ -249,11 +232,9 @@ def upload_extract_page() :
         
         if st.button("Upload to Database"):
             for i,row in df.iterrows():
-                #here %S means string values 
                 sql = """INSERT INTO card_data(company_name,card_holder,designation,mobile_number,email,website,area,city,state,pin_code,image)
                          VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"""
                 cursor.execute(sql, tuple(row))
-                # the connection is not auto committed by default, so we must commit to save our changes
                 pk.commit()
             st.success("#### Uploaded to database successfully!")
         
@@ -264,7 +245,7 @@ def upload_extract_page() :
 # modify page creation
 
 def modify_Page():
-    pk.autocommit = True  # Set autocommit to True
+    pk.autocommit = True  
 
 
     col1, col2, col3 = st.columns([3, 3, 2])
@@ -272,16 +253,13 @@ def modify_Page():
     column1, column2 = st.columns(2, gap="large")
 
     with column1:
-        # Print the contents of card_data table
         cursor.execute("SELECT * FROM card_data")
         result_all = cursor.fetchall()
-        print("Contents of card_data table:", result_all)
 
         cursor.execute("SELECT card_holder FROM card_data")
         result = cursor.fetchall()
         business_cards = {}
 
-        # Check if result is empty
         if not result:
             st.warning("No card holders found.")
         else:
@@ -295,9 +273,7 @@ def modify_Page():
                 "select company_name,card_holder,designation,mobile_number,email,website,area,city,state,pin_code from card_data WHERE card_holder=%s",
                 (selected_card,))
             result = cursor.fetchone()
-            # Check if result is not None before accessing its elements
             if result is not None:
-                # DISPLAYING ALL THE INFORMATIONS
                 company_name = st.text_input("Company_Name", result[0] if result[0] is not None else "")
                 card_holder = st.text_input("Card_Holder", result[1] if result[1] is not None else "")
                 designation = st.text_input("Designation", result[2] if result[2] is not None else "")
@@ -310,7 +286,6 @@ def modify_Page():
                 pin_code = st.text_input("Pin_Code", result[9] if result[9] is not None else "")
 
                 if st.button("Commit changes to DB"):
-                    # Update the information for the selected business card in the database
                     cursor.execute(
                         """UPDATE card_data SET company_name=%s,card_holder=%s,designation=%s,mobile_number=%s,email=%s,website=%s,area=%s,city=%s,state=%s,pin_code=%s
                             WHERE card_holder=%s""",
@@ -326,7 +301,6 @@ def modify_Page():
         result = cursor.fetchall()
         business_cards = {}
 
-        # Check if result is empty
         if not result:
             st.warning("No card holders found.")
         else:
@@ -351,15 +325,7 @@ def modify_Page():
         st.write(updated_df)
         pk.commit()
 
-        # Reset autocommit to False
         pk.autocommit = False
-
-
-
-
-
-
-
 
 # - - - - - - - - - - - - - - - - - - -sidebar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
@@ -370,11 +336,8 @@ pk = psycopg2.connect(host="localhost",
                       database="BizcardX",
                       port="5432")
 
-# Create a cursor
 cursor = pk.cursor()
 
-
-# Main Page
 def main():
     st.title("")
     cursor = pk.cursor()
