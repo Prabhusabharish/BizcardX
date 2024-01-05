@@ -24,7 +24,7 @@ import pytesseract
 pk = psycopg2.connect(host = "localhost",
                         user = "postgres",
                         password = "Sabharish@2015",
-                        database = "Phonepe",
+                        database = "BizcardX",
                         port = "5432")
 
 
@@ -67,33 +67,33 @@ def home_page() :
 
 # - - - - - - - - - - - - - - - - - - -Upload and Extract page - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
+# Connect to Postgres SQL
+pk = psycopg2.connect(host = "localhost",
+                        user = "postgres",
+                        password = "Sabharish@2015",
+                        database = "BizcardX",
+                        port = "5432")
 
-# Connect to PostgreSQL
-pk = psycopg2.connect(
-    host="localhost",
-    user="postgres",
-    password="Sabharish@2015",
-    database="Bizcard",
-    port="5432"
-)
 
 cursor = pk.cursor()
-# Upload & Extract page creation
-
-os.environ['TESSDATA_PREFIX'] = r'C:\Program Files\Tesseract-OCR'
-# print("Current PATH:", os.environ['PATH'])
-
-pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
 
-def extract_text_from_image(image_path):
-    img = Image.open(image_path)
-    text = pytesseract.image_to_string(img)
-    return text
+reader = easyocr.Reader(['en'])
 
-def image_preview(image,res): 
+
+def upload_extract_page() :      
+    st.markdown("### Upload a Business Card")
+    uploaded_card = st.file_uploader("upload here",label_visibility="collapsed",type=["png","jpeg","jpg"])
+        
+    if uploaded_card is not None:
+        
+        def save_card(uploaded_card):
+            with open(os.path.join("uploaded_cards",uploaded_card.name), "wb") as f:
+                f.write(uploaded_card.getbuffer())   
+        save_card(uploaded_card)
+       
+        def image_preview(image,res): 
             for (bbox, text, prob) in res: 
-              # unpack the bounding box
                 (tl, tr, br, bl) = bbox
                 tl = (int(tl[0]), int(tl[1]))
                 tr = (int(tr[0]), int(tr[1]))
@@ -105,81 +105,47 @@ def image_preview(image,res):
             plt.rcParams['figure.figsize'] = (15,15)
             plt.axis('off')
             plt.imshow(image)
-
-
-def upload_extract_page():
-    st.title("Image Text Extraction App")
-
-    uploaded_card = st.file_uploader("Choose an image...", type=["jpg", "png"])
-
-    saved_img = None 
-    result = [] 
-
-    if uploaded_card is not None:
-        # Perform text extraction when the user clicks the "Extract Text" button
-        if st.button("Extract Text"):
-            # Save the uploaded image temporarily
-            with open("temp_image.jpg", "wb") as f:
-                f.write(uploaded_card.getbuffer())
-
-            # Extract text from the uploaded image
-            # extracted_text = extract_text_from_image("temp_image.jpg")
-
-            # Display the extracted text
-            # st.subheader("Extracted Text:")
-            # st.write(extracted_text)
-
-            # Initialize the reader
-            reader = easyocr.Reader(['en'])
-
-            # Use the saved_img value for the OCR and image preview
-            saved_img = os.getcwd() + "\\" + "uploaded_cards" + "\\" + uploaded_card.name
-            result = reader.readtext(saved_img, detail=0, paragraph=False)
-
-            # Display the extracted text
-            st.subheader("Extracted Text:")
-            st.write("\n".join(result))
-
-
-        # Display the uploaded image in the first column
-        col1, col2 = st.columns(2, gap="large")
+        
+        col1,col2 = st.columns(2,gap="large")
         with col1:
             st.markdown("#     ")
             st.markdown("#     ")
             st.markdown("### You have uploaded the card")
             st.image(uploaded_card)
-
-        # Display the card details in the second column
         with col2:
             st.markdown("#     ")
             st.markdown("#     ")
             with st.spinner("Please wait processing image..."):
+                st.set_option('deprecation.showPyplotGlobalUse', False)
+                saved_img = os.getcwd()+ "\\" + "uploaded_cards"+ "\\"+ uploaded_card.name
+                image = cv2.imread(saved_img)
+                res = reader.readtext(saved_img)
                 st.markdown("### Image Processed and Data Extracted")
+                st.pyplot(image_preview(image,res))  
+                
+            
+        saved_img = os.getcwd()+ "\\" + "uploaded_cards"+ "\\"+ uploaded_card.name
+        result = reader.readtext(saved_img,detail = 0,paragraph=False)
+        
 
-        # CONVERTING IMAGE TO BINARY TO UPLOAD TO SQL DATABASE
         def img_to_binary(file):
-            # Check if file is not None before opening
-            if file is not None:
-                # Convert image data to binary format
-                with open(file, 'rb') as file:
-                    binaryData = file.read()
-                return binaryData
-            else:
-                return None
+            with open(file, 'rb') as file:
+                binaryData = file.read()
+            return binaryData
+        
+        data = {"company_name" : [],
+                "card_holder" : [],
+                "designation" : [],
+                "mobile_number" :[],
+                "email" : [],
+                "website" : [],
+                "area" : [],
+                "city" : [],
+                "state" : [],
+                "pin_code" : [],
+                "image" : img_to_binary(saved_img)
+               }
 
-        data = {
-            "company_name": [],
-            "card_holder": [],
-            "designation": [],
-            "mobile_number": [],
-            "email": [],
-            "website": [],
-            "area": [],
-            "city": [],
-            "state": [],
-            "pin_code": [],
-            "image": img_to_binary(saved_img)
-        }
         def get_data(res):
             for ind,i in enumerate(res):
 
@@ -260,76 +226,110 @@ def upload_extract_page():
                 cursor.execute(sql, tuple(row))
                 # the connection is not auto committed by default, so we must commit to save our changes
                 pk.commit()
-            st.success("#### Upload Successfully!")
+            st.success("#### Uploaded to database successfully!")
+        
 
 
 
 # - - - - - - - - - - - - - - - - - - -Modify page - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 # modify page creation
-def modify_Page() :
-    st.title("Modify Page")
 
-    try:
-        with st.columns([3, 3, 2]) as (col1, col2, col3):
-            col2.markdown("## Alter or Delete the data here")
+def modify_Page():
+    pk.autocommit = True  # Set autocommit to True
 
-            # Database Connection and Cursor
-            with pk.cursor() as cursor:
-                cursor.execute("SELECT card_holder FROM card_data")
-                result = cursor.fetchall()
-                business_cards = {row[0]: row[0] for row in result}
 
-                with col1:
-                    selected_card = st.selectbox("Select a card holder name to update", list(business_cards.keys()))
-                    st.markdown("#### Update or modify any data below")
+    col1, col2, col3 = st.columns([3, 3, 2])
+    col2.markdown("## Alter or Delete the data here")
+    column1, column2 = st.columns(2, gap="large")
 
-                    cursor.execute("""SELECT company_name, card_holder, designation, mobile_number, email, website, 
-                                      area, city, state, pin_code FROM card_data WHERE card_holder=%s""", (selected_card,))
-                    result = cursor.fetchone()
+    with column1:
+        # Print the contents of card_data table
+        cursor.execute("SELECT * FROM card_data")
+        result_all = cursor.fetchall()
+        print("Contents of card_data table:", result_all)
 
-                    # Displaying All Information
-                    company_name = st.text_input("Company_Name", result[0])
-                    card_holder = st.text_input("Card_Holder", result[1])
-                    designation = st.text_input("Designation", result[2])
-                    mobile_number = st.text_input("Mobile_Number", result[3])
-                    email = st.text_input("Email", result[4])
-                    website = st.text_input("Website", result[5])
-                    area = st.text_input("Area", result[6])
-                    city = st.text_input("City", result[7])
-                    state = st.text_input("State", result[8])
-                    pin_code = st.text_input("Pin_Code", result[9])
+        cursor.execute("SELECT card_holder FROM card_data")
+        result = cursor.fetchall()
+        business_cards = {}
 
-                    if st.button("Commit changes to DB"):
-                        # Update the information for the selected business card in the database
-                        cursor.execute("""UPDATE card_data SET company_name=%s, card_holder=%s, designation=%s,
-                                          mobile_number=%s, email=%s, website=%s, area=%s, city=%s, state=%s,
-                                          pin_code=%s WHERE card_holder=%s""",
-                                       (company_name, card_holder, designation, mobile_number, email, website, area,
-                                        city, state, pin_code, selected_card))
-                        pk.commit()
-                        st.success("Information updated in the database successfully.")
+        # Check if result is empty
+        if not result:
+            st.warning("No card holders found.")
+        else:
+            for row in result:
+                business_cards[row[0]] = row[0]
 
-                with col2:
-                    selected_card = st.selectbox("Select a card holder name to Delete", list(business_cards.keys()))
-                    st.write(f"### You have selected :green[**{selected_card}'s**] card to delete")
-                    st.write("#### Proceed to delete this card?")
+            selected_card = st.selectbox("Select a card holder name to update", list(business_cards.keys()))
 
-                    if st.button("Yes Delete Business Card"):
-                        cursor.execute("DELETE FROM card_data WHERE card_holder=%s", (selected_card,))
-                        pk.commit()
-                        st.success("Business card information deleted from the database.")
+            st.markdown("#### Update or modify any data below")
+            cursor.execute(
+                "select company_name,card_holder,designation,mobile_number,email,website,area,city,state,pin_code from card_data WHERE card_holder=%s",
+                (selected_card,))
+            result = cursor.fetchone()
+            # Check if result is not None before accessing its elements
+            if result is not None:
+                # DISPLAYING ALL THE INFORMATIONS
+                company_name = st.text_input("Company_Name", result[0] if result[0] is not None else "")
+                card_holder = st.text_input("Card_Holder", result[1] if result[1] is not None else "")
+                designation = st.text_input("Designation", result[2] if result[2] is not None else "")
+                mobile_number = st.text_input("Mobile_Number", result[3] if result[3] is not None else "")
+                email = st.text_input("Email", result[4] if result[4] is not None else "")
+                website = st.text_input("Website", result[5] if result[5] is not None else "")
+                area = st.text_input("Area", result[6] if result[6] is not None else "")
+                city = st.text_input("City", result[7] if result[7] is not None else "")
+                state = st.text_input("State", result[8] if result[8] is not None else "")
+                pin_code = st.text_input("Pin_Code", result[9] if result[9] is not None else "")
 
-    except Exception as e:
-        st.warning(f"An error occurred: {e}")
+                if st.button("Commit changes to DB"):
+                    # Update the information for the selected business card in the database
+                    cursor.execute(
+                        """UPDATE card_data SET company_name=%s,card_holder=%s,designation=%s,mobile_number=%s,email=%s,website=%s,area=%s,city=%s,state=%s,pin_code=%s
+                            WHERE card_holder=%s""",
+                        (company_name, card_holder, designation, mobile_number, email, website, area, city, state,
+                         pin_code, selected_card))
+                    pk.commit()
+                    st.success("Information updated in database successfully.")
+            else:
+                st.warning("No data found for the selected card holder.")
+
+    with column2:
+        cursor.execute("SELECT card_holder FROM card_data")
+        result = cursor.fetchall()
+        business_cards = {}
+
+        # Check if result is empty
+        if not result:
+            st.warning("No card holders found.")
+        else:
+            for row in result:
+                business_cards[row[0]] = row[0]
+
+            selected_card = st.selectbox("Select a card holder name to Delete", list(business_cards.keys()))
+            st.write(f"### You have selected :green[**{selected_card}'s**] card to delete")
+            st.write("#### Proceed to delete this card?")
+
+            if st.button("Yes Delete Business Card"):
+                cursor.execute(f"DELETE FROM card_data WHERE card_holder='{selected_card}'")
+                pk.commit()
+                st.success("Business card information deleted from database.")
 
     if st.button("View updated data"):
-        with pk.cursor() as cursor:
-            cursor.execute("""SELECT company_name, card_holder, designation, mobile_number, email, website, 
-                              area, city, state, pin_code FROM card_data""")
-            updated_df = pd.DataFrame(cursor.fetchall(),
-                                      columns=["Company_Name", "Card_Holder", "Designation", "Mobile_Number", "Email",
-                                               "Website", "Area", "City", "State", "Pin_Code"])
-            st.write(updated_df)
+        cursor.execute(
+            "select company_name,card_holder,designation,mobile_number,email,website,area,city,state,pin_code from card_data")
+        updated_df = pd.DataFrame(cursor.fetchall(),
+                                  columns=["Company_Name", "Card_Holder", "Designation", "Mobile_Number", "Email",
+                                           "Website", "Area", "City", "State", "Pin_Code"])
+        st.write(updated_df)
+        pk.commit()
+
+        # Reset autocommit to False
+        pk.autocommit = False
+
+
+
+
+
+
 
 
 # - - - - - - - - - - - - - - - - - - -sidebar - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -338,7 +338,7 @@ def modify_Page() :
 pk = psycopg2.connect(host="localhost",
                       user="postgres",
                       password="Sabharish@2015",
-                      database="Bizcard",
+                      database="BizcardX",
                       port="5432")
 
 # Create a cursor
@@ -348,10 +348,9 @@ cursor = pk.cursor()
 # Main Page
 def main():
     st.title("")
-    cursor = pk.cursor()
 
     st.sidebar.title("Navigation")
-    page = ["Home", "Upload and Extract",  "Modify Page"]
+    page = ["Home", "Upload and Extract", "Modify Page"]
     selected_page = st.sidebar.radio("Navigation", page)
 
     if selected_page == "Home":
@@ -360,6 +359,10 @@ def main():
         upload_extract_page()
     elif selected_page == "Modify Page":
         modify_Page()
- 
+
+# Sidebar option with a tooltip using markdown
+st.sidebar.markdown("")
+st.sidebar.write("")
+
 if __name__ == "__main__":
-    main()    
+    main()
