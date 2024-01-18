@@ -1,7 +1,9 @@
 BizCardX: Extracting Business Card Data with OCR
 BizcardX is an OCR (Optical Character Recognition) apps that allows users to upload business card images, extract relevant information, and store the data in a PostgreSQL database.
+
+
 Techs Used :
-✔	Python
+✔	Python\n
 ✔	PostgreSQl
 ✔	EasyOCR
 ✔	Streamlit
