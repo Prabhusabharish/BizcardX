@@ -1,25 +1,12 @@
 import pandas as pd
-import numpy as np
-import psycopg2
 import easyocr
 import streamlit as st
-import re
-import matplotlib.pyplot as plt
 from PIL import Image
-from streamlit_option_menu import option_menu
-from io import BytesIO
+import psycopg2
 import os
-import io
 import cv2
-import pytesseract as reader
-import pytesseract
-import base64
-import logging
-import tempfile
-from PIL import Image, UnidentifiedImageError
-import streamlit as st
-from PIL import Image
-import pytesseract
+import matplotlib.pyplot as plt
+import re
 
 # - - - - - - - - - - - - - - -set st addbar page - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
