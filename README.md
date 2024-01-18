@@ -3,7 +3,7 @@ BizcardX is an OCR (Optical Character Recognition) apps that allows users to upl
 
 
 Techs Used :
-✔	Python\n
+✔	Python
 ✔	PostgreSQl
 ✔	EasyOCR
 ✔	Streamlit
